@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <body>
+    <h3>Enter details</h3>
+    <form id="f">
+      <input name="name" placeholder="Name" required />
+      <input name="email" placeholder="Email" required />
+      <button>Send</button>
+    </form>
+    <pre id="resp"></pre>
+    <script>
+      const f = document.getElementById('f');
+      f.addEventListener('submit', async e => {
+        e.preventDefault();
+        const fd = Object.fromEntries(new FormData(f).entries());
+        const r = await fetch('/submit', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(fd)
+        });
+        const text = await r.text();
+        document.getElementById('resp').textContent = text;
+      });
+    </script>
+  </body>
+</html>

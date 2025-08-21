@@ -1,0 +1,3 @@
+application_url = "http://15.206.67.180"
+backend_private_ip = "10.0.2.196"
+frontend_public_ip = "15.206.67.180"

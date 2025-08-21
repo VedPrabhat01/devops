@@ -1,0 +1,76 @@
+pipeline {
+    // This tells Jenkins to run the pipeline on any available agent.
+    agent any
+
+    // Environment variables can be defined here if needed.
+    environment {
+        TF_DIR = 'terraform'
+    }
+
+    stages {
+        // --- STAGE 1: CREATE INFRASTRUCTURE ---
+        stage('Create Infrastructure') {
+            steps {
+                dir(TF_DIR) {
+                    echo 'Initializing Terraform...'
+                    sh 'terraform init -upgrade'
+
+                    echo 'Validating Terraform configuration...'
+                    sh 'terraform validate'
+
+                    echo 'Applying Terraform to build infrastructure...'
+                    // The -auto-approve flag is essential for non-interactive pipeline runs.
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        // --- STAGE 2: DEPLOY APPS ---
+        // This stage is technically handled by the provisioners in the 'apply' step.
+        // We can add a verification step here.
+        stage('Verify App Deployment') {
+            steps {
+                dir(TF_DIR) {
+                    echo 'Verifying that the application URL is available...'
+                    // This is a simple wait, a more robust solution might poll the URL.
+                    sh 'sleep 30' // Wait 30 seconds for containers to start
+                }
+            }
+        }
+
+        // --- STAGE 3: TEST SOLUTION ---
+        stage('Test Solution') {
+            steps {
+                dir(TF_DIR) {
+                    echo 'Retrieving application URL from Terraform outputs...'
+                    // Save the URL to a variable. The -raw flag removes quotes.
+                    sh 'URL=$(terraform output -raw application_url)'
+
+                    echo 'Testing application endpoint with curl...'
+                    // The -sL flag makes curl silent and follow redirects.
+                    // The -w "%{http_code}" flag prints only the status code.
+                    // We then check if the status code is 200.
+                    sh '''
+                        STATUS_CODE=$(curl -sL -w "%{http_code}" -o /dev/null $URL)
+                        if [ "$STATUS_CODE" -eq 200 ]; then
+                            echo "SUCCESS: Application is up and running. Received status code 200."
+                        else
+                            echo "FAILURE: Application is down. Received status code $STATUS_CODE."
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+    }
+
+    // --- POST-PIPELINE ACTIONS ---
+    // This block runs after all stages are complete, regardless of success or failure.
+    post {
+        always {
+            echo 'Pipeline finished.'
+            // In a real-world scenario, you might have a separate pipeline or manual step for 'destroy'.
+            // echo "To clean up resources, run: terraform destroy"
+        }
+    }
+}
